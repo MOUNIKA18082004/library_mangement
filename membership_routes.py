@@ -71,7 +71,7 @@ def remove_student(student_id):
     # Calculate total fines from all borrowed books
     total_fine = sum(book.get("fine", 0) for book in student["borrowed_books"])
 
-    # Admin override → can remove only if fine == 0
+    # Admin override  can remove only if fine == 0
     if is_admin:
         if total_fine > 0:
             return jsonify({
@@ -84,20 +84,20 @@ def remove_student(student_id):
             "fine": 0
         })
 
-    # Student self-request → check password
+    # Student self-request  check password
     if not password or password != student.get("password"):
         return jsonify({"error": "Password incorrect"}), 403
 
     # Check fine
     if total_fine == 0:
-        # Fine is zero → remove automatically
+        # Fine is zero  remove 
         students.pop(student_id)
         return jsonify({
             "message": f"Student {student_id} membership declined successfully (no pending fine)",
             "fine": 0
         })
     else:
-        # Fine > 0 → cannot remove automatically, must contact admin
+        # Fine > 0 cannot remove automatically, must contact admin
         return jsonify({
             "message": f"Cannot remove student {student_id}. Pending fine: {total_fine}. Please contact admin.",
             "fine": total_fine

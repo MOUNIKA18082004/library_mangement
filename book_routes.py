@@ -15,6 +15,11 @@ def borrow_book():
 
     if student_id not in students:
         return {"message": "Student not found"}, 404
+    
+    #  Check if student has entered the library and not yet exited
+    if not students[student_id].get("in_time") or students[student_id].get("out_time"):
+        return {"message": "Student must be inside the library to borrow a book"}, 403
+
     if book_id not in books or books[book_id]["available"] == "No":
         return {"message": "Book not available"}, 400
     if librarian_id not in librarians:
@@ -87,9 +92,6 @@ def return_book():
             book["date_of_returning"] = actual_return_date
             books[book_id]["available"] = "Yes"
 
-            # Remove returned book from student's borrowed list
-            borrowed_books.remove(book)
-
             return {
                 "message": "Book returned successfully",
                 "book_id": book_id,
@@ -97,6 +99,7 @@ def return_book():
             }
 
     return {"message": "Book not found in student's borrowed list"}, 404
+
 
 # Enquiry Books
 @book_routes_bp.get("/book_enquiry/<book_id>")
