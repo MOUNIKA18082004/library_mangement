@@ -4,11 +4,7 @@ from functools import wraps
 from db import students, books, librarians, API_KEYS
 from utils import require_role
 
-
 membership_routes_bp = Blueprint("membership_routes_bp",__name__)
-
-
-
 # Members and their IDs
 @membership_routes_bp.route("/members", methods=["GET"])
 def get_members():
@@ -54,7 +50,7 @@ def register_student():
 
     # Mask password in response
     response_student = students[student_id].copy()
-    response_student["password"] = "#"
+    response_student["password"] = "######"
 
     return jsonify({"message": f"Student {student_name} registered successfully",
                     "student": response_student})
@@ -75,12 +71,17 @@ def remove_student(student_id):
     # Calculate total fines from all borrowed books
     total_fine = sum(book.get("fine", 0) for book in student["borrowed_books"])
 
-    # Admin override → can remove regardless of fine or password
+    # Admin override → can remove only if fine == 0
     if is_admin:
+        if total_fine > 0:
+            return jsonify({
+                "message": f"Admin cannot remove student {student_id} because pending fine is {total_fine}",
+                "fine": total_fine
+            }), 400
         students.pop(student_id)
         return jsonify({
-            "message": f"Student {student_id} membership declined by admin",
-            "fine": total_fine
+            "message": f"Student {student_id} membership declined by admin (no pending fine)",
+            "fine": 0
         })
 
     # Student self-request → check password

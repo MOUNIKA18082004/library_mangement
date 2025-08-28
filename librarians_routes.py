@@ -4,7 +4,6 @@ from functools import wraps
 from db import students, books, librarians, API_KEYS
 from utils import require_role
 
-
 librarians_routes_bp = Blueprint("librarians_routes_bp",__name__)
 
 # Librarian Management
@@ -28,8 +27,6 @@ def add_librarian():
 
     librarians[librarian_id] = {"name": name, "email": email, "role": "staff"}
     return jsonify({"message": f"Librarian {name} added successfully"}), 201
-    librarians[librarian_id] = {"librarian_name": librarian_name}
-    return jsonify({"message": f"Librarian {librarian_name} added successfully"}), 201
 
 # Removing librarian - admin only
 # Remove librarian - admin only
@@ -41,7 +38,7 @@ def remove_librarian(librarian_id):
     
     removed = librarians.pop(librarian_id)
     return jsonify({"message": f"Librarian {removed['name']} removed"})
-    return jsonify({"message": f"Librarian {removed['librarian_name']} removed"})
+
 
 
 # List all librarians 

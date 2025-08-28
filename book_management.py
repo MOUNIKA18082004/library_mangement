@@ -4,7 +4,6 @@ from functools import wraps
 from db import students, books, librarians, API_KEYS
 from utils import require_role
 
-
 book_management_bp = Blueprint("book_management_bp",__name__)
 
 # Books currently issued (borrowed)

@@ -4,11 +4,7 @@ from functools import wraps
 from db import students, books, librarians, API_KEYS
 from utils import require_role
 
-
 book_routes_bp = Blueprint("book_routes_bp",__name__)
-
-
-
 # Borrowing book
 @book_routes_bp.post("/borrow_book")
 def borrow_book():

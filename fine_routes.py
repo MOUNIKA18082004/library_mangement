@@ -4,7 +4,6 @@ from functools import wraps
 from db import students, books, librarians, API_KEYS
 from utils import require_role
 
-
 fine_routes_bp = Blueprint("fine_routes_bp",__name__)
 
  # Checking Fines
