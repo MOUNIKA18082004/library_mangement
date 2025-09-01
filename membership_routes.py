@@ -1,11 +1,10 @@
-from flask import request, jsonify,Blueprint
-from datetime import datetime, timedelta
-from functools import wraps
+from flask import request, jsonify, Blueprint
 from db import students, books, librarians, API_KEYS
 from utils import require_role
 
-membership_routes_bp = Blueprint("membership_routes_bp",__name__)
-# Members and their IDs
+membership_routes_bp = Blueprint("membership_routes_bp", __name__)
+
+# List Members 
 @membership_routes_bp.route("/members", methods=["GET"])
 def get_members():
     members_list = [
@@ -13,27 +12,19 @@ def get_members():
         for sid, info in students.items()
     ]
 
-    total_members = len(members_list)
-
-    if not members_list:
-        return jsonify({
-            "total_members": 0,
-            "message": "No members found"
-        }), 200
-
     return jsonify({
-        "total_members": total_members,
+        "total_members": len(members_list),
         "members": members_list
     }), 200
-# Student Management
-# Registering membership - admin only
+
+# Register Student (Admin)
 @membership_routes_bp.route("/register_student", methods=["POST"])
 @require_role("admin")
 def register_student():
     data = request.json
     student_id = data.get("student_id")
     student_name = data.get("student_name")
-    password = data.get("password")  # get password from request
+    password = data.get("password")
 
     if not student_id or not student_name or not password:
         return jsonify({"error": "student_id, student_name, and password are required"}), 400
@@ -45,15 +36,19 @@ def register_student():
         "student_name": student_name,
         "borrowed_books": [],
         "fine": 0,
-        "password": password  # store password
+        "password": password
     }
 
-    # Mask password in response
-    response_student = students[student_id].copy()
-    response_student["password"] = "######"
-
-    return jsonify({"message": f"Student {student_name} registered successfully",
-                    "student": response_student})
+    return jsonify({
+        "message": f"Student {student_name} registered successfully",
+        "student": {
+            "student_id": student_id,
+            "student_name": student_name,
+            "borrowed_books": [],
+            "fine": 0,
+            "password": "######"  # masked
+        }
+    }), 201
 
 # Declining membership - admin only or student self-request
 @membership_routes_bp.route("/remove_student/<student_id>", methods=["DELETE"])
@@ -67,11 +62,9 @@ def remove_student(student_id):
         return jsonify({"error": "Student not found"}), 404
 
     student = students[student_id]
-
     # Calculate total fines from all borrowed books
     total_fine = sum(book.get("fine", 0) for book in student["borrowed_books"])
-
-    # Admin override  can remove only if fine == 0
+    # Admin override : can remove only if fine == 0
     if is_admin:
         if total_fine > 0:
             return jsonify({
@@ -83,21 +76,19 @@ def remove_student(student_id):
             "message": f"Student {student_id} membership declined by admin (no pending fine)",
             "fine": 0
         })
-
-    # Student self-request  check password
+    # Student self-request : check password
     if not password or password != student.get("password"):
         return jsonify({"error": "Password incorrect"}), 403
-
     # Check fine
     if total_fine == 0:
-        # Fine is zero  remove 
+        # Fine is zero : remove automatically
         students.pop(student_id)
         return jsonify({
             "message": f"Student {student_id} membership declined successfully (no pending fine)",
             "fine": 0
         })
     else:
-        # Fine > 0 cannot remove automatically, must contact admin
+        # Fine > 0 : cannot remove automatically, must contact admin
         return jsonify({
             "message": f"Cannot remove student {student_id}. Pending fine: {total_fine}. Please contact admin.",
             "fine": total_fine

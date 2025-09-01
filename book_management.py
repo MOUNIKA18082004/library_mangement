@@ -1,7 +1,6 @@
-from flask import Blueprint,request, jsonify
+from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
-from functools import wraps
-from db import students, books, librarians, API_KEYS
+from db import students, books, librarians
 from utils import require_role
 
 book_management_bp = Blueprint("book_management_bp",__name__)
@@ -57,6 +56,62 @@ def missing_book():
             return book
 
     return {"message": "Book not found in student's borrowed list"}, 404
+
+#  Display Missed Books 
+@book_management_bp.get("/missed_books")
+def get_missing_books():
+    missing_books = []
+
+    for student_id, student_info in students.items():
+        for book in student_info.get("borrowed_books", []):
+            if book.get("status") == "Missing":
+                missing_books.append({
+                    "student_id": student_id,
+                    "student_name": student_info["student_name"],
+                    "book_id": book["book_id"],
+                    "fine": book.get("fine", 0),
+                    "due_date": book.get("date_of_returning"),
+                })
+
+    if not missing_books:
+        return {"message": "No missing books found"}, 200
+
+    return {"missing_books": missing_books}, 200
+
+# Check Overdue & Mark as Missing 
+@book_management_bp.route("/check_overdue", methods=["PUT"])
+def check_overdue():
+    today = datetime.now()
+    updated_books = []
+
+    for sid, student in students.items():
+        for book in student.get("borrowed_books", []):
+            if book["status"] == "Borrowed":
+                borrow_date = datetime.strptime(book["borrow_date"], "%Y-%m-%d")
+                days_borrowed = (today - borrow_date).days
+
+                if days_borrowed > 15:
+                    # Mark as Missing & Fine = 500
+                    book["status"] = "Missing"
+                    book["fine"] = 500
+                    books[book["book_id"]]["available"] = "No"
+
+                    updated_books.append({
+                        "student_id": sid,
+                        "student_name": student["student_name"],
+                        "book_id": book["book_id"],
+                        "book_name": book["book_name"],
+                        "status": "Missing",
+                        "fine": book["fine"]
+                    })
+
+    if not updated_books:
+        return jsonify({"message": "No overdue books found"}), 200
+
+    return jsonify({
+        "message": "Overdue books marked as Missing",
+        "updated_books": updated_books
+    }), 200
 
 # Book Management
 # Adding book - admin only

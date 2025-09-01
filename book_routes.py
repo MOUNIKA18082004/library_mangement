@@ -1,10 +1,9 @@
-from flask import Blueprint,request, jsonify
+from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
-from functools import wraps
-from db import students, books, librarians, API_KEYS
-from utils import require_role
+from db import students, books, librarians
 
 book_routes_bp = Blueprint("book_routes_bp",__name__)
+
 # Borrowing book
 @book_routes_bp.post("/borrow_book")
 def borrow_book():
@@ -16,7 +15,7 @@ def borrow_book():
     if student_id not in students:
         return {"message": "Student not found"}, 404
     
-    #  Check if student has entered the library and not yet exited
+    #  Check if student has entered the library
     if not students[student_id].get("in_time") or students[student_id].get("out_time"):
         return {"message": "Student must be inside the library to borrow a book"}, 403
 
@@ -76,30 +75,32 @@ def return_book():
 
     borrowed_books = students[student_id]["borrowed_books"]
     for book in borrowed_books:
-        if book["book_id"] == book_id and book["status"] == "Borrowed":
-            today = datetime.now()
-            due_date = datetime.strptime(book["date_of_returning"], "%Y-%m-%d")
-            actual_return_date = today.strftime("%Y-%m-%d")
-
-            # Fine if late
-            if today > due_date:
-                delay = (today - due_date).days
-                book["fine"] = delay * 2
-            else:
+        if book["book_id"] == book_id:
+            # Case 1: Normal return
+            if book["status"] == "Borrowed":
+                book["status"] = "Returned"
                 book["fine"] = 0
+                books[book_id]["available"] = "Yes"
+                return {"message": "Book returned successfully"}, 200
 
-            book["status"] = "Returned"
-            book["date_of_returning"] = actual_return_date
-            books[book_id]["available"] = "Yes"
+            # Case 2: Returning a missing book
+            elif book["status"] == "Missing":
+                already_paid = 500 - book["fine"]   # how much student has already paid
+                book["fine"] = max(250 - already_paid, 0)  # reduce fine to 250, subtract paid amt
+                book["status"] = "Returned"
+                book["was_missing"] = True
+                books[book_id]["available"] = "Yes"
+                return {
+                    "message": "Missing book returned with reduced fine",
+                    "student_id": student_id,
+                    "book_id": book_id,
+                    "remaining_fine": book["fine"]
+                }, 200
 
-            return {
-                "message": "Book returned successfully",
-                "book_id": book_id,
-                "fine": book["fine"]
-            }
+            else:
+                return {"message": "Book already returned"}, 400
 
     return {"message": "Book not found in student's borrowed list"}, 404
-
 
 # Enquiry Books
 @book_routes_bp.get("/book_enquiry/<book_id>")
