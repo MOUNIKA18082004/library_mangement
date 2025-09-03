@@ -15,10 +15,10 @@ app.config["JWT_SECRET_KEY"] = "Mounika's_secret_key"
 app.register_blueprint(login_bp,url_prefix="")
 app.register_blueprint(book_management_bp,url_prefix="/book_manage")
 app.register_blueprint(book_routes_bp,url_prefix="/book")
-app.register_blueprint(fine_routes_bp,url_prefix="/fine")
-app.register_blueprint(librarians_routes_bp,url_prefix="/librarians")
-app.register_blueprint(membership_routes_bp,url_prefix="/membership")
-app.register_blueprint(student_routes_bp,url_prefix="/student")
+app.register_blueprint(fine_routes_bp,url_prefix="")
+app.register_blueprint(librarians_routes_bp,url_prefix="")
+app.register_blueprint(membership_routes_bp,url_prefix="")
+app.register_blueprint(student_routes_bp,url_prefix="")
 
 # Main function
 if __name__ == "__main__":

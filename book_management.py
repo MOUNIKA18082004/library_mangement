@@ -1,18 +1,16 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from db import students, books
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required
+from login import get_current_user   
 
 book_management_bp = Blueprint("book_management_bp", __name__)
 
-#  Issued Books
+# Issued Books 
 @book_management_bp.route("/issued_books", methods=["GET"])
 @jwt_required()
 def get_issued_books():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
-
+    role, username = get_current_user()   
     if role not in ["staff", "admin"]:
         return jsonify({"error": "Access denied"}), 403
 
@@ -33,7 +31,6 @@ def get_issued_books():
         "issued_books": issued_books_list or []
     }), 200
 
-
 # Available Books
 @book_management_bp.route("/available_books", methods=["GET"])
 def get_available_books():
@@ -47,13 +44,11 @@ def get_available_books():
 
     return jsonify({"available_books": available_books_list}), 200
 
-# Mark Missing Book 
+#  Mark Missing Book 
 @book_management_bp.put("/missing_book")
 @jwt_required()
 def missing_book():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
+    role, username = get_current_user()
 
     if role not in ["staff", "admin"]:
         return jsonify({"error": "Access denied"}), 403
@@ -83,9 +78,7 @@ def missing_book():
 @book_management_bp.get("/missed_books")
 @jwt_required()
 def get_missing_books():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
+    role, username = get_current_user()
 
     if role not in ["staff", "admin"]:
         return jsonify({"error": "Access denied"}), 403
@@ -112,9 +105,7 @@ def get_missing_books():
 @book_management_bp.put("/check_overdue")
 @jwt_required()
 def check_overdue():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
+    role, username = get_current_user()
 
     if role not in ["staff", "admin"]:
         return jsonify({"error": "Access denied"}), 403
@@ -148,15 +139,29 @@ def check_overdue():
         "updated_books": updated_books or []
     }), 200
 
-# BOOK MANAGEMENT 
+#  Book Management 
 @book_management_bp.route("/books", methods=["GET", "POST", "DELETE"])
 @jwt_required()
 def manage_books():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
+    role, username = get_current_user()
 
-# Adding new book to library
+    # GET all books 
+    if request.method == "GET":
+        result = [
+            {"book_id": bid, "book_name": info["book_name"], "available": info["available"]}
+            for bid, info in books.items()
+        ]
+        return jsonify({
+            "requested_by": username,
+            "role": role,
+            "total_books": len(result),
+            "books": result
+        }), 200
+
+    # Only admin can add/delete books
+    if role != "admin":
+        return jsonify({"error": "Admin privilege required"}), 403
+
     if request.method == "POST":
         data = request.json
         book_id = data.get("book_id")
@@ -173,7 +178,6 @@ def manage_books():
             "requested_by": username
         }), 201
 
-# Removing book from Library
     elif request.method == "DELETE":
         data = request.json
         book_id = data.get("book_id")

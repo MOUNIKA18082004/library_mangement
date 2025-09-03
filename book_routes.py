@@ -1,24 +1,23 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 from db import students, books, librarians
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required
+from login import get_current_user   
 
 book_routes_bp = Blueprint("book_routes_bp", __name__)
 
-# Borrowing Book 
+#  Borrowing Book 
 @book_routes_bp.post("/borrow_book")
 @jwt_required()
 def borrow_book():
+    role, username = get_current_user()
+
     data = request.get_json()
     student_id = data["student_id"]
     book_id = data["book_id"]
     librarian_id = data["librarian_id"]
 
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
-
-    # Only staff or the student themselves can borrow
+    # Only staff or admin can borrow for students
     if role not in ["staff", "admin"]:
         return {"error": "Access denied"}, 403
 
@@ -33,6 +32,7 @@ def borrow_book():
     if librarian_id not in librarians:
         return {"message": "Librarian not found"}, 404
 
+    # Check borrowing limit
     active_books = [
         b for b in students[student_id]["borrowed_books"]
         if b["status"] in ["Borrowed", "Missing"]
@@ -40,6 +40,7 @@ def borrow_book():
     if len(active_books) >= 3:
         return {"message": "Borrowing limit reached (max 3 books allowed)"}, 403
 
+    # Create borrowing record
     date_of_issuing = datetime.now()
     date_of_returning = date_of_issuing + timedelta(days=7)
 
@@ -63,14 +64,11 @@ def borrow_book():
         "borrowed_book": record
     }
 
-
-# Book count each member has 
+#  Book Count Each Member 
 @book_routes_bp.route("/count/<student_id>", methods=["GET"])
 @jwt_required()
 def get_book_count(student_id):
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
+    role, username = get_current_user()
 
     if role not in ["staff", "admin"] and username != student_id:
         return {"error": "Access denied"}, 403
@@ -88,18 +86,15 @@ def get_book_count(student_id):
         "borrowed_books": student["borrowed_books"]
     })
 
-
-# Returning Book 
+# Returning Book
 @book_routes_bp.put("/return_book")
 @jwt_required()
 def return_book():
+    role, username = get_current_user()
+
     data = request.get_json()
     student_id = data["student_id"]
     book_id = data["book_id"]
-
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
 
     if role not in ["staff", "admin"] and username != student_id:
         return {"error": "Access denied"}, 403
@@ -110,12 +105,14 @@ def return_book():
     borrowed_books = students[student_id]["borrowed_books"]
     for book in borrowed_books:
         if book["book_id"] == book_id:
+            # Normal return
             if book["status"] == "Borrowed":
                 book["status"] = "Returned"
                 book["fine"] = 0
                 books[book_id]["available"] = "Yes"
                 return {"message": "Book returned successfully"}, 200
 
+            # Returning a missing book
             elif book["status"] == "Missing":
                 already_paid = 500 - book["fine"]
                 book["fine"] = max(250 - already_paid, 0)
@@ -134,8 +131,7 @@ def return_book():
 
     return {"message": "Book not found in student's borrowed list"}, 404
 
-
-# Enquiry Books (Public Access) 
+# Enquiry Books (Public) -
 @book_routes_bp.get("/book_enquiry/<book_id>")
 def book_enquiry(book_id):
     if book_id not in books:
@@ -145,14 +141,11 @@ def book_enquiry(book_id):
     else:
         return {"message": f"Book {book_id} - {books[book_id]['book_name']} is NOT available"}
 
-
-#  Books and Student Details 
+# Books and Student Details 
 @book_routes_bp.route("/students_books", methods=["GET"])
 @jwt_required()
 def students_books():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")
+    role, username = get_current_user()
 
     if role in ["staff", "admin"]:
         all_students_books = {

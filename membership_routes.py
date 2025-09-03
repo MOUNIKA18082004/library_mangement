@@ -4,7 +4,6 @@ from flask_jwt_extended import jwt_required, get_jwt
 
 membership_routes_bp = Blueprint("membership_routes_bp", __name__)
 
-
 @membership_routes_bp.route("/members", methods=["GET", "POST", "DELETE"])
 @jwt_required()
 def members():

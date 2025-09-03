@@ -5,7 +5,6 @@ from flask_jwt_extended import jwt_required, JWTManager, create_access_token, ge
 
 student_routes_bp = Blueprint("student_routes_bp", __name__)
 
-
 @student_routes_bp.route("/student", methods=["GET", "POST", "PUT"])
 def student_actions():
 

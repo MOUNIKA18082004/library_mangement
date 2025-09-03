@@ -1,17 +1,17 @@
 from flask import Blueprint, request, jsonify
 from db import students
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required
+from login import get_current_user   
 
 fine_routes_bp = Blueprint("fine_routes_bp", __name__)
 
-#  Checking Fines 
+# Checking Fines 
 @fine_routes_bp.get("/fines/<student_id>")
 @jwt_required()
 def get_student_fines(student_id):
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
-    username = jwt_body.get("sub")  
-    
+    role, username = get_current_user()
+
+    # Only admin/staff OR the student themselves can view
     if role not in ["admin", "staff"] and username != student_id:
         return {"error": "Access denied. You can only view your own fines."}, 403
 
@@ -38,12 +38,11 @@ def get_student_fines(student_id):
 
     return {"fines": fines_list}, 200
 
-#  View all students with fines 
+# View All Students with Fines 
 @fine_routes_bp.route("/students_fines", methods=["GET"])
 @jwt_required()
 def students_fines():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
+    role, username = get_current_user()
 
     if role not in ["admin", "staff"]:
         return jsonify({"error": "Only librarians (staff/admin) can view fines"}), 403
@@ -58,7 +57,7 @@ def students_fines():
                     "book_name": book["book_name"],
                     "fine": book["fine"],
                     "status": book["status"],
-                    "was_missing": book.get("was_missing", False)  # include flag
+                    "was_missing": book.get("was_missing", False)
                 })
         if fines:
             students_with_fines[sid] = {
@@ -68,15 +67,14 @@ def students_fines():
 
     if not students_with_fines:
         return jsonify({"message": "No fines pending"}), 200
-    return jsonify({"students_with_fines": students_with_fines}), 200
 
+    return jsonify({"students_with_fines": students_with_fines}), 200
 
 # Paying Fine 
 @fine_routes_bp.put("/pay_fine/<student_id>")
 @jwt_required()
 def pay_fine(student_id):
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")
+    role, username = get_current_user()
 
     if role not in ["admin", "staff"]:
         return jsonify({"error": "Only librarians (staff/admin) can process fines"}), 403
@@ -119,4 +117,3 @@ def pay_fine(student_id):
         "paid_amount": amount,
         "remaining_fine": new_total_fine
     }), 200
-

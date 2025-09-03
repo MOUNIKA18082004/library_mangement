@@ -1,14 +1,13 @@
 from flask import Blueprint, request, jsonify
 from db import librarians
 from flask_jwt_extended import jwt_required, get_jwt
-
+from login import get_current_user
 librarians_routes_bp = Blueprint("librarians_routes_bp", __name__)
 
 @librarians_routes_bp.route("/librarians", methods=["GET", "POST", "DELETE"])
 @jwt_required()
 def manage_librarians():
-    jwt_body = get_jwt()
-    role = jwt_body.get("role")  # custom claim from JWT (set at login)
+    role, username = get_current_user()
 
     # List all librarians 
     if request.method == "GET":
@@ -16,12 +15,17 @@ def manage_librarians():
             {
                 "librarian_id": lid,
                 "librarian_name": info.get("librarian_name"),
+                "role": info.get("role", "staff")
             }
             for lid, info in librarians.items()
         ]
-        return jsonify({"librarians": result}), 200
+        return jsonify({
+            "requested_by": username,
+            "role": role,
+            "librarians": result
+        }), 200
 
-    #  Add librarian (Admin only) 
+    # Add librarian (Admin only) 
     elif request.method == "POST":
         if role != "admin":
             return jsonify({"error": "Only admin can add librarians"}), 403
@@ -29,7 +33,6 @@ def manage_librarians():
         data = request.json
         librarian_id = data.get("librarian_id")
         librarian_name = data.get("librarian_name")
-
 
         if not librarian_id or not librarian_name:
             return jsonify({"error": "librarian_id and librarian_name are required"}), 400
@@ -43,6 +46,7 @@ def manage_librarians():
         }
         return jsonify({
             "message": f"Librarian {librarian_name} added successfully",
+            "requested_by": username,
             "librarian": librarians[librarian_id]
         }), 201
 
@@ -62,5 +66,6 @@ def manage_librarians():
 
         removed = librarians.pop(librarian_id)
         return jsonify({
-            "message": f"Librarian {removed['librarian_name']} removed successfully"
+            "message": f"Librarian {removed['librarian_name']} removed successfully",
+            "requested_by": username
         }), 200

@@ -27,3 +27,7 @@ def login():
         return jsonify({"msg": "Invalid student password"}), 401
 
     return jsonify({"msg": "User not found"}), 404
+ 
+def get_current_user(): # Extract role and username from JWT
+    jwt_body = get_jwt()
+    return jwt_body.get("role"), jwt_body.get("sub")
