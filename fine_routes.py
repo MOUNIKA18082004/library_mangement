@@ -1,11 +1,20 @@
 from flask import Blueprint, request, jsonify
 from db import students
+from flask_jwt_extended import jwt_required, get_jwt
 
 fine_routes_bp = Blueprint("fine_routes_bp", __name__)
 
-# Checking Fines 
+#  Checking Fines 
 @fine_routes_bp.get("/fines/<student_id>")
+@jwt_required()
 def get_student_fines(student_id):
+    jwt_body = get_jwt()
+    role = jwt_body.get("role")
+    username = jwt_body.get("sub")  
+    
+    if role not in ["admin", "staff"] and username != student_id:
+        return {"error": "Access denied. You can only view your own fines."}, 403
+
     if student_id not in students:
         return {"error": "Student not found"}, 404
 
@@ -21,7 +30,7 @@ def get_student_fines(student_id):
                 "book_name": book["book_name"],
                 "status": book["status"],
                 "fine": book["fine"],
-                "was_missing": book.get("was_missing", False)  # show if it was missing before
+                "was_missing": book.get("was_missing", False)
             })
 
     if not fines_list:
@@ -29,9 +38,16 @@ def get_student_fines(student_id):
 
     return {"fines": fines_list}, 200
 
-# View all students with fines 
+#  View all students with fines 
 @fine_routes_bp.route("/students_fines", methods=["GET"])
+@jwt_required()
 def students_fines():
+    jwt_body = get_jwt()
+    role = jwt_body.get("role")
+
+    if role not in ["admin", "staff"]:
+        return jsonify({"error": "Only librarians (staff/admin) can view fines"}), 403
+
     students_with_fines = {}
     for sid, info in students.items():
         fines = []
@@ -42,20 +58,29 @@ def students_fines():
                     "book_name": book["book_name"],
                     "fine": book["fine"],
                     "status": book["status"],
-                    "was_missing": book.get("was_missing", False)  #  include flag here too
+                    "was_missing": book.get("was_missing", False)  # include flag
                 })
         if fines:
             students_with_fines[sid] = {
                 "student_name": info["student_name"],
                 "fines": fines
             }
+
     if not students_with_fines:
         return jsonify({"message": "No fines pending"}), 200
     return jsonify({"students_with_fines": students_with_fines}), 200
 
+
 # Paying Fine 
 @fine_routes_bp.put("/pay_fine/<student_id>")
+@jwt_required()
 def pay_fine(student_id):
+    jwt_body = get_jwt()
+    role = jwt_body.get("role")
+
+    if role not in ["admin", "staff"]:
+        return jsonify({"error": "Only librarians (staff/admin) can process fines"}), 403
+
     if student_id not in students:
         return jsonify({"error": "Student not found"}), 404
 
@@ -94,3 +119,4 @@ def pay_fine(student_id):
         "paid_amount": amount,
         "remaining_fine": new_total_fine
     }), 200
+

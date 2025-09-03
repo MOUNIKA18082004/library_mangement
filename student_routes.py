@@ -1,13 +1,16 @@
 from flask import request, jsonify, Blueprint
 from datetime import datetime
 from db import students
+from flask_jwt_extended import jwt_required, JWTManager, create_access_token, get_jwt
 
 student_routes_bp = Blueprint("student_routes_bp", __name__)
 
-# ---------- Single Route ----------
+
 @student_routes_bp.route("/student", methods=["GET", "POST", "PUT"])
 def student_actions():
-    if request.method == "POST":  # Student Entry
+
+    # Student Entry
+    if request.method == "POST":  
         data = request.get_json()
         student_id = data.get("student_id")
 
@@ -23,8 +26,9 @@ def student_actions():
             "student_name": students[student_id]["student_name"],
             "in_time": students[student_id]["in_time"]
         }
-
-    elif request.method == "PUT":  # Student Exit
+    
+     # Student Exit
+    elif request.method == "PUT": 
         data = request.get_json()
         student_id = data.get("student_id")
 
@@ -40,8 +44,9 @@ def student_actions():
             "student_id": student_id,
             "out_time": students[student_id]["out_time"]
         }
-
-    elif request.method == "GET":  # View Library Entries
+    
+    # View Library Entries
+    elif request.method == "GET":  
         entered_students = {
             sid: {
                 "student_name": info["student_name"],
