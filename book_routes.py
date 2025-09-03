@@ -15,8 +15,9 @@ def borrow_book():
     if student_id not in students:
         return {"message": "Student not found"}, 404
     
-    #  Check if student has entered the library
-    if not students[student_id].get("in_time") or students[student_id].get("out_time"):
+    # Check if student has entered the library
+    if not students[student_id].get("in_time") or students[student_id].get("out_time"):  
+        
         return {"message": "Student must be inside the library to borrow a book"}, 403
 
     if book_id not in books or books[book_id]["available"] == "No":
@@ -24,6 +25,15 @@ def borrow_book():
     if librarian_id not in librarians:
         return {"message": "Librarian not found"}, 404
 
+    # Max 3 active borrowed books
+    active_books = [
+        b for b in students[student_id]["borrowed_books"]
+        if b["status"] in ["Borrowed", "Missing"]
+    ]
+    if len(active_books) >= 3:
+        return {"message": "Borrowing limit reached (max 3 books allowed)"}, 403
+
+    # Borrow process
     date_of_issuing = datetime.now()
     date_of_returning = date_of_issuing + timedelta(days=7)
 
@@ -43,9 +53,10 @@ def borrow_book():
     return {
         "student_id": student_id,
         "student_name": students[student_id]["student_name"],
-        "borrowed_books_count": len(students[student_id]["borrowed_books"]),
+        "borrowed_books_count": len(active_books) + 1,
         "borrowed_book": record
     }
+
 
 # Book count each member has
 @book_routes_bp.route("/count/<student_id>", methods=["GET"])

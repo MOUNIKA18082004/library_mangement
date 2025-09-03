@@ -1,42 +1,62 @@
 from flask import Blueprint, request, jsonify
-from db import librarians
-from utils import require_role
+from db import librarians, API_KEYS
 
-librarians_routes_bp = Blueprint("librarians_routes_bp",__name__)
+librarians_routes_bp = Blueprint("librarians_routes_bp", __name__)
 
-# Librarian Management
-# Adding librarian - admin only
-@librarians_routes_bp.route("/add_librarian", methods=["POST"])
-@require_role("admin")
-def add_librarian():
-    data = request.json
-    librarian_id = data.get("librarian_id")
-    name = data.get("name")
-    email = data.get("email")
-    librarian_name = data.get("librarian_name")
+# ---------- Unified Librarian Management ----------
+@librarians_routes_bp.route("/librarians", methods=["GET", "POST", "DELETE"])
+def manage_librarians():
+    if request.method == "GET":  # List all librarians
+        result = [
+            {
+                "librarian_id": lid,
+                "librarian_name": info.get("librarian_name"),
+                "name": info.get("name"),
+                "email": info.get("email"),
+                "role": info.get("role")
+            }
+            for lid, info in librarians.items()
+        ]
+        return jsonify({"librarians": result}), 200
 
-    if not librarian_id or not librarian_name:
-        return jsonify({"error": "librarian_id and librarian_name are required"}), 400
+    elif request.method == "POST":  # Add librarian (admin check via header)
+        data = request.json
+        librarian_id = data.get("librarian_id")
+        librarian_name = data.get("librarian_name")
+        name = data.get("name")
+        email = data.get("email")
 
-    if librarian_id in librarians:
-        return jsonify({"error": "Librarian ID already exists"}), 400
+        is_admin = request.headers.get("X-API-KEY") == API_KEYS.get("admin_key")
+        if not is_admin:
+            return jsonify({"error": "Admin privilege required"}), 403
 
-    librarians[librarian_id] = {"name": name, "email": email, "role": "staff"}
-    return jsonify({"message": f"Librarian {name} added successfully"}), 201
+        if not librarian_id or not librarian_name:
+            return jsonify({"error": "librarian_id and librarian_name are required"}), 400
 
-# Remove librarian - admin only
-@librarians_routes_bp.route("/remove_librarian/<librarian_id>", methods=["DELETE"])
-@require_role("admin")
-def remove_librarian(librarian_id):
-    if librarian_id not in librarians:
-        return jsonify({"error": "Librarian not found"}), 404
-    
-    removed = librarians.pop(librarian_id)
-    return jsonify({"message": f"Librarian {removed['name']} removed"})
+        if librarian_id in librarians:
+            return jsonify({"error": "Librarian ID already exists"}), 400
 
-# List all librarians 
-@librarians_routes_bp.route("/list_librarians", methods=["GET"])
-def list_librarians():
-    result = [{"librarian_id": lid, "librarian_name": info["librarian_name"]} 
-              for lid, info in librarians.items()]
-    return jsonify({"librarians": result})
+        librarians[librarian_id] = {
+            "librarian_name": librarian_name,
+            "name": name,
+            "email": email,
+            "role": "staff"
+        }
+        return jsonify({"message": f"Librarian {librarian_name} added successfully"}), 201
+
+    elif request.method == "DELETE":  # Remove librarian (admin only)
+        data = request.json
+        librarian_id = data.get("librarian_id")
+
+        is_admin = request.headers.get("X-API-KEY") == API_KEYS.get("admin_key")
+        if not is_admin:
+            return jsonify({"error": "Admin privilege required"}), 403
+
+        if not librarian_id:
+            return jsonify({"error": "librarian_id is required"}), 400
+
+        if librarian_id not in librarians:
+            return jsonify({"error": "Librarian not found"}), 404
+
+        removed = librarians.pop(librarian_id)
+        return jsonify({"message": f"Librarian {removed['librarian_name']} removed"}), 200

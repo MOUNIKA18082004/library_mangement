@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 from db import students, books, librarians
+from db import books, API_KEYS
+
 from utils import require_role
 
 book_management_bp = Blueprint("book_management_bp",__name__)
@@ -57,7 +59,7 @@ def missing_book():
 
     return {"message": "Book not found in student's borrowed list"}, 404
 
-#  Display Missed Books 
+# Display Missed Books 
 @book_management_bp.get("/missed_books")
 def get_missing_books():
     missing_books = []
@@ -115,25 +117,49 @@ def check_overdue():
 
 # Book Management
 # Adding book - admin only
-@book_management_bp.route("/add_book", methods=["POST"])
-@require_role("admin")
-def add_book_admin():
-    data = request.json
-    book_id = data.get("book_id")
-    book_name = data.get("book_name")
+@book_management_bp.route("/books", methods=["POST", "DELETE", "GET"])
+def manage_books():
+    if request.method == "GET":  # List all books
+        result = [
+            {"book_id": bid, "book_name": info["book_name"], "available": info["available"]}
+            for bid, info in books.items()
+        ]
+        return jsonify({"total_books": len(result), "books": result}), 200
 
-    if book_id in books:
-        return jsonify({"error": "Book ID already exists"}), 400
+    elif request.method == "POST":  # Add a book (admin only)
+        data = request.json
+        book_id = data.get("book_id")
+        book_name = data.get("book_name")
 
-    books[book_id] = {"book_name": book_name, "available": "Yes"}
-    return jsonify({"message": f"Book {book_name} added successfully"}), 201
+        is_admin = request.headers.get("X-API-KEY") == API_KEYS.get("admin_key")
+        if not is_admin:
+            return jsonify({"error": "Admin privilege required"}), 403
 
-# Removing book - admin only
-@book_management_bp.route("/delete_book/<book_id>", methods=["DELETE"])
-@require_role("admin")
-def delete_book_admin(book_id):
-    if book_id not in books:
-        return jsonify({"error": "Book not found"}), 404
+        if not book_id or not book_name:
+            return jsonify({"error": "book_id and book_name are required"}), 400
 
-    deleted = books.pop(book_id)
-    return jsonify({"message": f"Book {book_id} deleted successfully", "deleted": deleted})
+        if book_id in books:
+            return jsonify({"error": "Book ID already exists"}), 400
+
+        books[book_id] = {"book_name": book_name, "available": "Yes"}
+        return jsonify({"message": f"Book {book_name} added successfully"}), 201
+
+    elif request.method == "DELETE":  # Delete a book (admin only)
+        data = request.json
+        book_id = data.get("book_id")
+
+        is_admin = request.headers.get("X-API-KEY") == API_KEYS.get("admin_key")
+        if not is_admin:
+            return jsonify({"error": "Admin privilege required"}), 403
+
+        if not book_id:
+            return jsonify({"error": "book_id is required"}), 400
+
+        if book_id not in books:
+            return jsonify({"error": "Book not found"}), 404
+
+        deleted = books.pop(book_id)
+        return jsonify({
+            "message": f"Book {book_id} deleted successfully",
+            "deleted": deleted
+        }), 200
