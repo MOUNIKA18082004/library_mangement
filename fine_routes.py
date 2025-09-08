@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import students
 from flask_jwt_extended import jwt_required
-from login import get_current_user   
+from login_routes import get_current_user   
 
 fine_routes_bp = Blueprint("fine_routes_bp", __name__)
 

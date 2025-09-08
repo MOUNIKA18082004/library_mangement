@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import librarians
 from flask_jwt_extended import jwt_required, get_jwt
-from login import get_current_user
+from login_routes import get_current_user
 librarians_routes_bp = Blueprint("librarians_routes_bp", __name__)
 
 @librarians_routes_bp.route("/librarians", methods=["GET", "POST", "DELETE"])
