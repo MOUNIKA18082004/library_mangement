@@ -11,6 +11,12 @@ app = Flask(__name__)
 jwt = JWTManager(app)
 app.config["JWT_SECRET_KEY"] = "Mounika's_secret_key"
 
+
+@jwt.unauthorized_loader
+def authorizing(err):
+    return {"message":"Token is missing"}
+
+
 app.register_blueprint(login_bp,url_prefix="")
 app.register_blueprint(book_management_bp,url_prefix="")
 app.register_blueprint(fine_routes_bp,url_prefix="")

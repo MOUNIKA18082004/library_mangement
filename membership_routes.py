@@ -77,9 +77,21 @@ def members():
                     "message": f"Admin cannot remove student {student_id} because pending fine is {total_fine}",
                     "fine": total_fine
                 }), 400
+
+            # NEW CHECK: ensure no active borrowed books
+            active_books = [
+                book for book in student["borrowed_books"]
+                if book.get("status") in ["Borrowed", "Missing"]
+            ]
+            if active_books:
+                return jsonify({
+                    "message": f"Admin cannot remove student {student_id} because they still have books not returned.",
+                    "active_books": active_books
+                }), 400
+
             students.pop(student_id)
             return jsonify({
-                "message": f"Student {student_id} membership declined by admin (no pending fine)",
+                "message": f"Student {student_id} membership declined by admin (no pending fine and no active books)",
                 "fine": 0
             })
 
@@ -96,8 +108,19 @@ def members():
                 "fine": total_fine
             }), 400
 
+        # NEW CHECK: ensure no active borrowed books
+        active_books = [
+            book for book in student["borrowed_books"]
+            if book.get("status") in ["Borrowed", "Missing"]
+        ]
+        if active_books:
+            return jsonify({
+                "message": f"Cannot remove student {student_id}. You still have books that must be returned.",
+                "active_books": active_books
+            }), 400
+
         students.pop(student_id)
         return jsonify({
-            "message": f"Student {student_id} membership declined successfully (no pending fine)",
+            "message": f"Student {student_id} membership declined successfully (no pending fine and no active books)",
             "fine": 0
         })

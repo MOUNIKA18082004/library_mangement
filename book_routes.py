@@ -269,7 +269,7 @@ def get_missing_books():
 def check_overdue():
     role, username = get_current_user()
 
-    if role not in ["staff", "admin"]:
+    if role not in ["staff"]:
         return jsonify({"error": "Access denied"}), 403
 
     today = datetime.now()
